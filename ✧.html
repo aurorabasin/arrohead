@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>✧</title>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background: #000;
+    }
+
+    iframe {
+      border: none;
+      width: 100%;
+      min-height: 0;    /* allows shrinking */
+      overflow: hidden; /* prevents content forcing expansion */
+    }
+
+    /* Top = 40%, Bottom = 60% */
+    #topPane { flex: 0 0 27%; }
+    #midPane { flex: 0 0 17%; }
+    #botPane { flex: 0 0 56%; }
+  </style>
+</head>
+
+<body>
+  <!-- Top pane: arrowhead -->
+  <iframe id="topPane" src="arrowhead/🏹.html"></iframe>
+  
+  <iframe id="midPane" src="budj/budj.html"></iframe>
+
+  <!-- Bottom pane: ss -->
+  <iframe id="botPane" src="ss/ss.html"></iframe>
+
+  
+</body>
+</html>

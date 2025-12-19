@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Simple Tracker</title>
+
+<style>
+:root{
+  --bg:#0b0f13;
+  --muted:#94a3b8;
+  --danger:#b33a3a;
+}
+*{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI}
+body{
+  margin:0;background:linear-gradient(180deg,var(--bg),#071018);
+  color:#bfc9d6;padding:14px;
+}
+.top{
+  display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px;
+  align-items:center;
+}
+.dayLetter{
+  padding:6px 10px;border:0px solid rgba(255,255,255,0.08);
+  border-radius:8px;background:transparent;
+  min-width:40px;text-align:center;
+}
+
+button{
+  background:transparent;border:1px solid rgba(255,255,255,0.06);
+  padding:8px 12px;border-radius:8px;color:inherit;cursor:pointer;
+}
+button:hover{border-color:rgba(255,255,255,0.12)}
+.add{background:linear-gradient(90deg,#0b1720,#0b1a24)}
+
+.list{display:flex;flex-direction:column;gap:10px;width:100%}
+
+.row{
+  display:grid;
+  grid-template-columns: 1.6fr 120px 55px 90px 28px;
+  gap:8px;align-items:center;
+  padding:10px;border-radius:10px;
+  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.03);
+}
+input[type="text"], input[type="date"], input[type="number"]{
+  width:100%;background:transparent;
+  border:1px solid rgba(255,255,255,0.04);
+  padding:8px;border-radius:8px;color:inherit;
+}
+.avg{font-weight:600}
+.muted{color:var(--muted);font-size:12px;margin-top:2px}
+.x{background:transparent;border:none;color:var(--danger);font-weight:700;cursor:pointer}
+
+@media(max-width:600px){
+  .row{
+    grid-template-columns: 1.7fr 105px 50px 80px 24px;
+  }
+}
+</style>
+</head>
+
+<body>
+  
+<audio id="dateSound" src="sleep.mp3" preload="auto"></audio>
+<audio id="beepSound" src="beep.mp3" preload="auto"></audio>
+
+<div class="top">
+  <div id="totalAvg" class="dayLetter" style="font-size:12px; font-weight:600; color:#555;">0</div>
+  <div id="dayLetter" class="dayLetter" style="color:#666;">---</div>
+  <button id="addBtn" class="add">add</button>
+  <button id="dateBtn">▪️▪️▪️</button>
+</div>
+
+<div id="list" class="list"></div>
+
+<script>
+const LS_KEY = 'simple_tracker_v3';
+
+function iso(d=new Date()){
+  const x=new Date(d); x.setHours(0,0,0,0);
+  return x.toISOString().slice(0,10);
+}
+
+function load(){ try{ return JSON.parse(localStorage.getItem(LS_KEY))||[] }catch(e){return[]} }
+function save(x){ localStorage.setItem(LS_KEY, JSON.stringify(x)) }
+
+function daysSincePlus1(dateIso, todayIso){
+  const a=new Date(dateIso), b=new Date(todayIso);
+  a.setHours(0,0,0,0); b.setHours(0,0,0,0);
+  return Math.floor((b-a)/86400000)+1;
+}
+
+function money(n){ return "$"+(Number(n)?.toFixed(2) ?? "0.00") }
+
+function dayAbbrev(d){
+  const names=["S","M","T","W","T","F","S"];
+  return names[new Date(d).getDay()];
+}
+
+let lines = load();
+let todayIso = iso();  // always real system today on load
+
+const listEl = document.getElementById('list');
+const addBtn = document.getElementById('addBtn');
+const dateBtn = document.getElementById('dateBtn');
+const dayEl = document.getElementById('dayLetter');
+
+function renderDay(){
+  dayEl.textContent = dayAbbrev(new Date());
+}
+
+function makeRowObj(){
+  return { id: Date.now().toString(36), title:"", date: iso(), sum:0 };
+}
+
+function render(){
+  listEl.innerHTML = "";
+  let grandTotal = 0;
+  lines.forEach(row=>{
+    const wrap=document.createElement("div");
+    wrap.className="row";
+
+    // title
+    const t=document.createElement("input");
+    t.type="text"; t.value=row.title; t.placeholder="title";
+    t.oninput = e=>{ row.title=e.target.value; save(lines); };
+
+    // date
+    const d=document.createElement("input");
+    d.type="date"; d.value=row.date;
+    d.onchange = e=>{ row.date=e.target.value; save(lines); render(); };
+
+    // number input (adds to sum)
+    const n=document.createElement("input");
+    n.type="number"; n.step="any";
+    n.onblur = e=>{
+      const v=parseFloat(e.target.value);
+      if(!isNaN(v)){ row.sum = Number((row.sum+v).toFixed(6)); }
+      e.target.value="";
+      save(lines);
+      render();
+      document.getElementById("beepSound").currentTime=0; document.getElementById("beepSound").play();
+    };
+
+    // avg area
+    const box=document.createElement("div");
+    const days = daysSincePlus1(row.date, todayIso);
+    const months = Math.floor((days - 1) / 30) + 1;
+    const avg = row.sum / months;
+    grandTotal += avg;
+    const a=document.createElement("div"); a.className="avg"; a.textContent = money(avg);
+    const m=document.createElement("div"); m.className="muted"; const monthFrac = (days / 30).toFixed(1); m.textContent = `+${row.sum} • ${monthFrac}`;
+    box.append(a); box.append(m);
+
+    // delete
+    const x=document.createElement("button");
+    x.className="x"; x.textContent="✕";
+    x.onclick = ()=>{
+      if(confirm("Delete this line?")){
+        lines = lines.filter(r=>r.id!==row.id);
+        save(lines); render();
+      }
+    };
+
+    wrap.append(t,d,n,box,x);
+    listEl.append(wrap);
+  });
+  
+  document.getElementById("totalAvg").textContent = money(grandTotal);
+  
+}
+
+addBtn.onclick = ()=>{
+  lines.push(makeRowObj());
+  save(lines);
+  render();
+};
+
+dateBtn.onclick = ()=>{
+  todayIso = iso(new Date());
+  renderDay();
+  render();
+  document.getElementById("dateSound").currentTime=0;
+  document.getElementById("dateSound").play();
+};
+
+renderDay();
+render();
+</script>
+
+</body>
+</html>
