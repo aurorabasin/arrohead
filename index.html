@@ -1,41 +1,614 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>✧</title>
-  <style>
-    html, body {
-      margin: 0;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      background: #000;
-    }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Calendar Tool</title>
+<style>
+  body { background:#0f0f11; color:#bbb; font-family:sans-serif; margin:20px; }
+  .row { display:flex; align-items:center; margin-bottom:10px; }
+  .title-symbol { margin-right:10px; font-size:20px; color:#666; cursor:pointer; }
+  input, button, textarea { background:#2a2a2d; color:#ddd; border:1px solid #444; padding:6px; border-radius:4px; }
+  button { cursor:pointer; }
+  textarea { width:100%; height:24px; resize:vertical; }
+  .calendar-row { display:grid; grid-template-columns:1fr 90px 50px; gap:7px; padding:6px 0; border-bottom:1px solid #333; }
+  .note-btn { margin-left:4px; cursor:pointer; color:#aaa; font-size:16px; }
 
-    iframe {
-      border: none;
-      width: 100%;
-      min-height: 0;    /* allows shrinking */
-      overflow: hidden; /* prevents content forcing expansion */
-    }
+  #checklistBtn {
+    background:#2a2a2d;
+    color:#ddd;
+    border:1px solid #444;
+    padding:6px 12px;
+    border-radius:4px;
+    cursor:pointer;
+    font-size:16px;
+    margin-left:10px;
+  }
+  #checklistBtn:hover { background:#3a3a3d; }
 
-    /* Top = 40%, Bottom = 60% */
-    #topPane { flex: 0 0 27%; }
-    #midPane { flex: 0 0 17%; }
-    #botPane { flex: 0 0 56%; }
-  </style>
+  .modal {
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.95);
+    z-index:1000;
+    align-items:center;
+    justify-content:center;
+  }
+  .modal.active { display:flex; }
+
+  .modal-content {
+    background:#1e1e1e;
+    padding:30px;
+    border-radius:6px;
+    max-width:600px;
+    width:90%;
+    max-height:90vh;
+    overflow-y:auto;
+  }
+
+  .modal-header {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:20px;
+  }
+
+  .modal-header h2 {
+    color:#ddd;
+    font-size:24px;
+    margin:0;
+  }
+
+  .complete-indicator {
+    color:#7edc82;
+    font-size:16px;
+    margin-left:10px;
+  }
+
+  .close-btn {
+    background:#2a2a2a;
+    color:#eee;
+    border:1px solid #444;
+    padding:6px 12px;
+    cursor:pointer;
+    border-radius:4px;
+  }
+  .close-btn:hover { background:#3a3a3a; }
+
+  #checklist {
+    list-style:none;
+    padding:0;
+    margin:0;
+  }
+
+  #checklist li {
+    padding:10px;
+    border:1px solid #333;
+    background-color:#1e1e1e;
+    margin-bottom:10px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+
+  .item-left {
+    display:flex;
+    align-items:center;
+    gap:6px;
+    flex:1;
+  }
+
+  input[type="checkbox"] {
+    transform:scale(1.2);
+    accent-color:#800000;
+    cursor:pointer;
+  }
+
+  span[contenteditable] {
+    border-bottom:1px dashed #555;
+    padding:2px 4px;
+    cursor:text;
+    flex:1;
+  }
+
+  .delete-btn {
+    background:none;
+    border:none;
+    color:#d09595;
+    font-size:1.2em;
+    cursor:pointer;
+    padding:0 5px;
+  }
+
+  .delete-btn:hover {
+    color:#ff6b6b;
+  }
+
+  .controls {
+    margin-top:15px;
+    display:flex;
+    gap:8px;
+  }
+
+  .controls button {
+    background-color:#2a2a2a;
+    border:1px solid #444;
+    color:#eee;
+    padding:6px 12px;
+    cursor:pointer;
+  }
+
+  .controls button:hover {
+    background-color:#3a3a3a;
+  }
+
+  /* iframe modal styles */
+  .iframe-modal {
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.95);
+    z-index:2000;
+    flex-direction:column;
+  }
+  .iframe-modal.active { display:flex; }
+
+  .iframe-header {
+    background:#1a1a1a;
+    padding:12px 20px;
+    display:flex;
+    justify-content:flex-end;
+  }
+
+  .iframe-container {
+    flex:1;
+    overflow:hidden;
+  }
+
+  .iframe-container iframe {
+    width:100%;
+    height:100%;
+    border:none;
+  }
+</style>
 </head>
-
 <body>
-  <!-- Top pane: arrowhead -->
-  <iframe id="topPane" src="arrowhead/🏹.html"></iframe>
-  
-  <iframe id="midPane" src="budj/budj.html"></iframe>
 
-  <!-- Bottom pane: ss -->
-  <iframe id="botPane" src="ss/ss.html"></iframe>
+<div class="row">
+  <div class="title-symbol" id="starBtn">✧</div>
+  <div class="title-symbol" id="archeryBtn">🏹</div>
+  <div class="title-symbol" id="trackerBtn">💴</div>
+  <div id="todayDisplay"></div>
+  <button id="refreshBtn" style="margin-left:auto;">Refresh</button>
+</div>
 
+<div class="row">
+  <textarea id="bigNote"></textarea>
+  <input id="tinyTotal" type="number" style="width:25px; margin-left:10px;" placeholder="0" />
+  <input id="sideNote" style="width:80px; margin-left:10px;" />
+</div>
+
+<div class="row">
+  <textarea id="longNote"></textarea>
+  <button id="checklistBtn">
+    <span id="checklistIndicator">🪼</span>
+  </button>
+</div>
+
+<hr style="border-color:#070d0e; margin:15px 0;" />
+
+<div id="calendar"></div>
+
+<!-- NOTE MODAL -->
+<div id="noteModal" style="
+  position:fixed; inset:0; background:rgba(0,0,0,0.6);
+  display:none; align-items:center; justify-content:center; z-index:999;">
+  <div style="background:#1c1c1e; padding:15px; border-radius:6px; width:300px;">
+    <textarea id="noteEditor" style="width:100%; height:140px;"></textarea>
+    <div style="margin-top:10px; text-align:right;">
+      <button id="cancelNote">Cancel</button>
+      <button id="saveNote">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- CHECKLIST MODAL -->
+<div id="checklistModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="checklistTitle">Daily Tasks</h2>
+      <button class="close-btn" id="closeChecklist">Back</button>
+    </div>
+    <ul id="checklist" ondragover="event.preventDefault()"></ul>
+    <div class="controls">
+      <button id="addItemBtn">Add Item</button>
+      <button id="resetChecklistBtn">Reset</button>
+    </div>
+  </div>
+</div>
+
+<!-- ARCHERY IFRAME MODAL -->
+<div id="archeryModal" class="iframe-modal">
+  <div class="iframe-header">
+    <button class="close-btn" id="closeArchery">Back</button>
+  </div>
+  <div class="iframe-container">
+    <iframe id="archeryFrame" src="archery.html"></iframe>
+  </div>
+</div>
+
+<!-- TRACKER IFRAME MODAL -->
+<div id="trackerModal" class="iframe-modal">
+  <div class="iframe-header">
+    <button class="close-btn" id="closeTracker">Back</button>
+  </div>
+  <div class="iframe-container">
+    <iframe id="trackerFrame" src="tracker.html"></iframe>
+  </div>
+</div>
+
+<!-- Sound Effects -->
+<audio id="sound-check" src="sounds/check.mp3"></audio>
+<audio id="sound-complete" src="sounds/complete.mp3"></audio>
+<audio id="sound-plunk" src="sounds/plunk.mp3"></audio>
+<audio id="sound-sleeper" src="sounds/sleeper.mp3"></audio>
+<audio id="sound-ssrefresh" src="sounds/ssrefresh.mp3"></audio>
+
+<script>
+const LINES = 50;
+
+let data = JSON.parse(localStorage.getItem("calendarData")||"null") || {
+  bigNote:"",
+  sideNote:"",
+  longNote:"",
+  tinyTotal: 0,
+  starNote:"",
+  checklistItems: [],
+  items: Array.from({length:LINES},()=>({title:"", note:"", date:""}))
+};
+
+let tinyRunningTotal = data.tinyTotal || 0;
+
+function save(){ localStorage.setItem("calendarData", JSON.stringify(data)); }
+
+function formatToday(){
+  const d = new Date();
+  const opts = { weekday:"short", year:"numeric", month:"short", day:"numeric" };
+  return d.toLocaleDateString(undefined, opts);
+}
+
+function daysAway(dateStr){
+  if(!dateStr) return "";
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = new Date(dateStr);
+  return Math.round((d - today)/86400000);
+}
+
+function colorFor(n){
+  if(n === 0) return "#ff6161";
+  if(n <= 3) return "#ffb961";
+  if(n <= 10) return "#e8e861";
+  if(n <= 30) return "#7edc82";
+  return "#8fa3ff";
+}
+
+let currentItem = null;
+const noteModal = document.getElementById("noteModal");
+const noteEditor = document.getElementById("noteEditor");
+
+function openNote(item){
+  currentItem = item;
+  noteEditor.value = item.note || "";
+  noteModal.style.display = "flex";
+}
+
+document.getElementById("cancelNote").onclick = () => {
+  noteModal.style.display = "none";
+};
+
+document.getElementById("saveNote").onclick = () => {
+  if (currentItem && currentItem.note === data.starNote) {
+    data.starNote = noteEditor.value;
+    save();
+    noteModal.style.display = "none";
+  } else {
+    currentItem.note = noteEditor.value;
+    save();
+    build();
+    noteModal.style.display = "none";
+  }
+};
+
+const starBtn = document.getElementById("starBtn");
+starBtn.onclick = () => {
+  currentItem = { note: data.starNote };
+  noteEditor.value = data.starNote || "";
+  noteModal.style.display = "flex";
+};
+
+function build(){
+  document.getElementById("todayDisplay").textContent = formatToday();
+  document.getElementById("bigNote").value = data.bigNote;
+  document.getElementById("sideNote").value = data.sideNote;
+  document.getElementById("longNote").value = data.longNote;
+
+  const sorted = [...data.items].sort((a,b)=>{
+    const da = daysAway(a.date);
+    const db = daysAway(b.date);
+    if(da === "") return 1;
+    if(db === "") return -1;
+    return da - db;
+  });
+
+  const cal = document.getElementById("calendar");
+  cal.innerHTML = "";
+
+  sorted.forEach(item=>{
+    const row = document.createElement("div");
+    row.className = "calendar-row";
+
+    const title = document.createElement("input");
+    title.value = item.title;
+    title.oninput = ()=>{ item.title = title.value; save(); };
+
+    const noteBtn = document.createElement("span");
+    noteBtn.className = "note-btn";
+    noteBtn.textContent = item.note ? "•" : "ⁿ";
+    noteBtn.onclick = ()=> openNote(item);
+
+    const date = document.createElement("input");
+    date.type = "date";
+    date.value = item.date;
+    date.oninput = ()=>{ 
+      item.date = date.value; 
+      build(); 
+      save();
+      const soundPlunk = document.getElementById("sound-plunk");
+      if (soundPlunk) {
+        soundPlunk.currentTime = 0;
+        soundPlunk.play();
+      }
+    };
+
+    const days = document.createElement("div");
+    const num = daysAway(item.date);
+    days.textContent = num;
+    if(num !== "") days.style.color = colorFor(num);
+
+    const wrap = document.createElement("div");
+    wrap.style.display = "flex";
+    wrap.appendChild(title);
+    wrap.appendChild(noteBtn);
+
+    row.appendChild(wrap);
+    row.appendChild(date);
+    row.appendChild(days);
+    cal.appendChild(row);
+  });
+
+  document.getElementById("tinyTotal").placeholder = tinyRunningTotal;
+}
+
+document.getElementById("bigNote").oninput = ()=>{ data.bigNote = document.getElementById("bigNote").value; save(); };
+document.getElementById("sideNote").oninput = ()=>{ data.sideNote = document.getElementById("sideNote").value; save(); };
+document.getElementById("longNote").oninput = ()=>{ data.longNote = document.getElementById("longNote").value; save(); };
+
+const tinyTotal = document.getElementById("tinyTotal");
+const blurSound = document.getElementById("sound-sleeper");
+tinyTotal.addEventListener("blur", () => {
+  const val = Number(tinyTotal.value);
+  if (!isNaN(val) && tinyTotal.value !== "") {
+    tinyRunningTotal += val;
+    tinyTotal.placeholder = tinyRunningTotal;
+    tinyTotal.value = "";
+    data.tinyTotal = tinyRunningTotal;
+    save();
+    blurSound.currentTime = 0; 
+    blurSound.play(); 
+  }
+});
+
+// ===== CHECKLIST FUNCTIONALITY =====
+const checklistModal = document.getElementById("checklistModal");
+const checklistBtn = document.getElementById("checklistBtn");
+const closeChecklist = document.getElementById("closeChecklist");
+const checklist = document.getElementById("checklist");
+const checklistIndicator = document.getElementById("checklistIndicator");
+const checklistTitle = document.getElementById("checklistTitle");
+const addItemBtn = document.getElementById("addItemBtn");
+const resetChecklistBtn = document.getElementById("resetChecklistBtn");
+
+const soundCheck = document.getElementById("sound-check");
+const soundComplete = document.getElementById("sound-complete");
+
+let dragSrcIndex = null;
+
+if (!data.checklistItems) {
+  data.checklistItems = [
+    {text: "Review emails and respond to urgent messages", checked: false},
+    {text: "Complete morning standup meeting", checked: false},
+    {text: "Work on priority project tasks", checked: false},
+    {text: "Take lunch break and stretch", checked: false},
+    {text: "Update task tracker and documentation", checked: false},
+    {text: "Plan tomorrow's priorities", checked: false}
+  ];
+  save();
+}
+
+function renderChecklist() {
+  checklist.innerHTML = "";
   
+  data.checklistItems.forEach((item, index) => {
+    const li = document.createElement("li");
+    li.draggable = true;
+    li.ondragstart = () => dragSrcIndex = index;
+    li.ondrop = () => {
+      if (dragSrcIndex !== null && dragSrcIndex !== index) {
+        const moved = data.checklistItems.splice(dragSrcIndex, 1)[0];
+        data.checklistItems.splice(index, 0, moved);
+        save();
+        renderChecklist();
+      }
+    };
+
+    const leftSide = document.createElement("div");
+    leftSide.className = "item-left";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = item.checked;
+    checkbox.onchange = () => {
+      item.checked = checkbox.checked;
+      save();
+      updateChecklistStatus();
+      
+      if (soundCheck) {
+        soundCheck.currentTime = 0;
+        soundCheck.play();
+      }
+      
+      if (data.checklistItems.length > 0 && data.checklistItems.every(i => i.checked)) {
+        if (soundComplete) {
+          soundComplete.currentTime = 0;
+          soundComplete.play();
+        }
+      }
+    };
+
+    const textSpan = document.createElement("span");
+    textSpan.textContent = item.text;
+    textSpan.contentEditable = true;
+    textSpan.onblur = () => {
+      item.text = textSpan.textContent;
+      save();
+    };
+
+    leftSide.appendChild(checkbox);
+    leftSide.appendChild(textSpan);
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "delete-btn";
+    deleteBtn.textContent = "×";
+    deleteBtn.title = "Delete Item";
+    deleteBtn.onclick = () => {
+      if (confirm("Delete this item?")) {
+        data.checklistItems.splice(index, 1);
+        save();
+        renderChecklist();
+        updateChecklistStatus();
+      }
+    };
+
+    li.appendChild(leftSide);
+    li.appendChild(deleteBtn);
+    checklist.appendChild(li);
+  });
+}
+
+function updateChecklistStatus() {
+  const total = data.checklistItems.length;
+  if (total === 0) {
+    checklistIndicator.textContent = "🪼";
+    checklistTitle.innerHTML = "Daily Tasks";
+    return;
+  }
+  const checked = data.checklistItems.filter(i => i.checked).length;
+  const allChecked = checked === total;
+  
+  checklistIndicator.textContent = allChecked ? "✔️" : "🪼";
+  
+  if (allChecked) {
+    checklistTitle.innerHTML = 'Daily Tasks <span class="complete-indicator">(Complete!)</span>';
+  } else {
+    checklistTitle.innerHTML = "Daily Tasks";
+  }
+}
+
+function addChecklistItem() {
+  const text = prompt("Enter new checklist item:");
+  if (!text) return;
+  data.checklistItems.push({ text, checked: false });
+  save();
+  renderChecklist();
+  updateChecklistStatus();
+}
+
+function resetChecklist() {
+  data.checklistItems.forEach(item => item.checked = false);
+  save();
+  renderChecklist();
+  updateChecklistStatus();
+}
+
+addItemBtn.addEventListener("click", addChecklistItem);
+resetChecklistBtn.addEventListener("click", resetChecklist);
+
+checklistBtn.addEventListener("click", () => {
+  checklistModal.classList.add("active");
+  renderChecklist();
+  updateChecklistStatus();
+});
+
+closeChecklist.addEventListener("click", () => {
+  checklistModal.classList.remove("active");
+});
+
+checklistModal.addEventListener("click", (e) => {
+  if (e.target === checklistModal) {
+    checklistModal.classList.remove("active");
+  }
+});
+
+updateChecklistStatus();
+
+// ===== IFRAME MODALS =====
+const archeryModal = document.getElementById("archeryModal");
+const archeryBtn = document.getElementById("archeryBtn");
+const closeArchery = document.getElementById("closeArchery");
+
+const trackerModal = document.getElementById("trackerModal");
+const trackerBtn = document.getElementById("trackerBtn");
+const closeTracker = document.getElementById("closeTracker");
+
+archeryBtn.addEventListener("click", () => {
+  archeryModal.classList.add("active");
+});
+
+closeArchery.addEventListener("click", () => {
+  archeryModal.classList.remove("active");
+});
+
+trackerBtn.addEventListener("click", () => {
+  trackerModal.classList.add("active");
+});
+
+closeTracker.addEventListener("click", () => {
+  trackerModal.classList.remove("active");
+});
+
+// ===== REFRESH BUTTON =====
+const refreshSound = document.getElementById("sound-ssrefresh");
+refreshBtn.onclick = () => {
+  refreshSound.currentTime = 0; 
+  refreshSound.play(); 
+  build();
+
+  tinyRunningTotal = 0;
+  tinyTotal.placeholder = "0";
+  data.tinyTotal = 0;
+  save();
+
+  resetChecklist();
+  
+  // Trigger date update in tracker iframe
+  const trackerFrame = document.getElementById("trackerFrame");
+  if (trackerFrame && trackerFrame.contentWindow) {
+    trackerFrame.contentWindow.postMessage({action: 'updateDate'}, '*');
+  }
+};
+
+build();
+</script>
 </body>
 </html>
